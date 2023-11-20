@@ -211,20 +211,45 @@ if ($notify_me_telegram -eq "yes") {
 }
 
 if ($notify_me_discord -eq "yes") {
-  $discord_message = "$dns_record DNS Record Updated To: $ip (was $dns_record_ip)"
-  $discord_payload = [PSCustomObject]@{content = $discord_message} | ConvertTo-Json
-  $discord_notification = @{
-    Uri    = $discord_webhook_URL
-    Method = 'POST'
-    Body = $discord_payload
-    Headers = @{ "Content-Type" = "application/json" }
-  }
+    # Original Discord message
+    $discord_message = @"
+    **Hello,
+    Your DNS Record has been updated.**:white_check_mark:
+    This is the record that has been updated: *$dns_record*
+    
+     - Old IP: **$dns_record_ip** 
+     - New IP: **$ip** 
+
+    I will notify you the next time your IP changes. 
+    Have a great day!
+"@
+
+    # Create an embedded message
+    $embed = @{
+        title = "DNS Record Update"
+        description = $discord_message
+        color = 65280  # Green color (decimal)
+    }
+
+    # Create the payload with the embedded message
+    $discord_payload = [PSCustomObject]@{
+        embeds = @($embed)
+    } | ConvertTo-Json
+
+    # Create the webhook notification
+    $discord_notification = @{
+        Uri     = $discord_webhook_URL
+        Method  = 'POST'
+        Body    = $discord_payload
+        Headers = @{ "Content-Type" = "application/json" }
+    }
+
     try {
-      Invoke-RestMethod -Proxy $http_proxy -ProxyCredential $proxy_credential @discord_notification
+        Invoke-RestMethod -Proxy $http_proxy -ProxyCredential $proxy_credential @discord_notification
     } catch {
-      Write-Host "==> Discord notification request failed. Here are the details for the exception:" | Tee-Object $File_LOG -Append
-      Write-Host "==> Request StatusCode:" $_.Exception.Response.StatusCode.value__  | Tee-Object $File_LOG -Append
-      Write-Host "==> Request StatusDescription:" $_.Exception.Response.StatusDescription | Tee-Object $File_LOG -Append
+        Write-Host "==> Discord notification request failed. Here are the details for the exception:" | Tee-Object $File_LOG -Append
+        Write-Host "==> Request StatusCode:" $_.Exception.Response.StatusCode.value__  | Tee-Object $File_LOG -Append
+        Write-Host "==> Request StatusDescription:" $_.Exception.Response.StatusDescription | Tee-Object $File_LOG -Append
     }
     Exit
 }
